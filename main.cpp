@@ -32,7 +32,6 @@ class Configuration {
     public:
         float clockSpeed = 1000;            // Clock Speed measure in Hz
         float simFactor = 0.002;            // Simulation Factor -> Sim Clock Speed = clockSpeed / simFactor
-        static constexpr u32 MEM_SIZE = 1024 * 64;
         int maxCycles = 30;
         bool verbose = false;
 };
@@ -40,23 +39,24 @@ class Configuration {
 Configuration config;
 
 struct Memory {
-    Byte Data[config.MEM_SIZE];
+    static constexpr u32 MEM_SIZE = 1024 * 64;
+    Byte Data[MEM_SIZE];
 
     Byte& operator[]( u32 address ) {
         return Data[address];
     }
 
     void Init( Byte e ) {
-        for ( u32 i = 0; i < config.MEM_SIZE; i++ ) {
+        for ( u32 i = 0; i < MEM_SIZE; i++ ) {
             Data[i] = e;
         }
-        std::cout << "\n\033[1;31m-- Memory Init --\033[0m\n    Length                  " << config.MEM_SIZE  << " bits" << std::endl;
+        std::cout << "\n\033[1;31m-- Memory Init --\033[0m\n    Length                  " << MEM_SIZE  << " bits" << std::endl;
     }
 
     void Load( Byte ins[256], Word MEM_START ) {
 
         for ( u32 i = 0; i < 256; i++ ) {
-            if ( ins[i] == 0xEE && ins[i+1] == 0xFF ) {
+            if ( ins[i] == 0xEF ) {
                 std::cout << "    Instruction length      " << i  << " bytes" << std::endl;
                 i = 256; break;
             } else { Data[MEM_START+i] = ins[i]; }
@@ -128,7 +128,7 @@ struct CPU {
             Cycle( cycles );
             return Data;
         } else {
-            exit;
+            return 0x00;
         }
     }   
 
@@ -250,8 +250,7 @@ struct CPU {
                     std::cout << "    ! Ins: CLI [Clear interrupt disable flag]" << std::endl;
                 } break;
 
-
-////////////////////////////////////////////////// All the following instructions are really shit and have to be revised/extended
+                // All the following instructions are really shit and have to be revised/extended
 
                 case 0xA9: {                                                // LDA - Load Accumulator (2 cycles)
                     Byte Value = FetchByte( cycles, memory );
@@ -311,7 +310,7 @@ int main() {
     std::cout << "\033[1;31m\n  | | | | | | | | | | | | | | | | | | | | | | |\n-------------------------------------------------\n|                                               |\n|                 6502 Emulator                 |\n|                                               |\n-------------------------------------------------\n  | | | | | | | | | | | | | | | | | | | | | | |\n\033[0m" << std::endl; 
     
     config.verbose = false;
-    config.simFactor = 0.004;
+    config.simFactor = 0.01;
 
     Byte Ins[] = {
         0xA9, 0xAB,                 // Load Accumulator with 0xAB
@@ -323,6 +322,7 @@ int main() {
         0x48,                       // Push Accumulator
         0xEA,                       // NOP
         0x4C, 0xF9, 0xFF,           // Jump to 0xFFFA (exit)
+        0xEF,
     };
     
     Memory mem;
