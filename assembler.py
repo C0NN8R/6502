@@ -1,6 +1,26 @@
 import json
 from time import sleep
 
+# Debugging utilities
+
+# List of breakpoints (addresses where execution will pause)
+breakpoints = []
+
+# Function to set a breakpoint
+def set_breakpoint(address):
+    if address not in breakpoints:
+        breakpoints.append(address)
+        print(f"Breakpoint set at 0x{address:04X}")
+    else:
+        print(f"Breakpoint already exists at 0x{address:04X}")
+
+# Function to check if the current address is a breakpoint
+def check_breakpoint(address):
+    if address in breakpoints:
+        print(f"Breakpoint hit at 0x{address:04X}")
+        return True
+    return False
+
 # Load addrSet and insSet from JSON files
 with open('addrSet.json') as f:
     addrSet = json.load(f)
@@ -22,49 +42,79 @@ def Exec():
     i = 0
     while i < len(insList):
         sleep(.15)
-        instruction = insList[i]
-        if instruction not in insSet:
-            print("\n! Unsupported Operation at i == " + str(i) + ": " + instruction)
+
+        if insList[i] not in insSet:
+            print("\n! Unsupported Operation at i == " + str(i) + ": " + insList[i])
             return 0
 
-        print(f"\nAssembling at i == {i}: {instruction}")
+        print(f"\nAssembling at i == {str(i)}: {insList[i]}")
 
-        if instruction not in ["BRK", "CLC", "CLD", "CLI", "CLV", "DEX", "DEY", "INX", "INY", "NOP", "PHA", "PHP", "PLA", "PLP",
-                               "RTI", "RTS", "SEC", "SED", "SEI", "TAX", "TAY", "TSX", "TXA", "TXS", "TYA", "EXT"]:
-            addrType = "rel" if instruction in ["BCC", "BCS", "BEQ", "BMI", "BNE", "BPL", "BVC", "BVS"] else AddrType(insList[i + 1])
+        # Check for breakpoints
+        if check_breakpoint(i):
+            print("Execution paused at breakpoint.")
+            input("Press Enter to continue...")
+
+        # If non-implied addressing type (= with operand):
+        if insList[i] not in ["BRK", "CLC", "CLD", "CLI", "CLV", "DEX", "DEY", "INX", "INY", "NOP", "PHA", "PHP", "PLA", "PLP",
+                                "RTI", "RTS", "SEC", "SED", "SEI", "TAX", "TAY", "TSX", "TXA", "TXS", "TYA", "EXT"]:
+            
+            # If branch instruction:
+            if insList[i] in ["BCC", "BCS", "BEQ", "BMI", "BNE", "BPL", "BVC", "BVS"]:
+                addrType = "rel"
+            else:
+                addrType = AddrType(insList[i+1])
+
             try:
-                opcode = insSet[instruction][addrType]
-            except KeyError:
-                print("\n! Non-compatible Addressing Type at i == " + str(i) + ": " + instruction)
+                opcode = insSet[insList[i]][addrType]
+            except:
+                print("\n! Non-compatible Addressing Type at i == " + str(i) + ": " + insList[i])
                 return 0
 
             print(f" - Addressing type == {addrType} and opcode == {opcode}")
 
-            if addrType in ["imm", "zer", "x-zer", "y-zer", "x-zer-ind", "y-zer-ind"]:
-                code += f"0x{opcode}, 0x{insList[i + 1][2:4]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i + 1][2:4]}, ")
-                i += 1
-            elif addrType in ["abs", "x-abs", "y-abs"]:
-                code += f"0x{opcode}, 0x{insList[i + 1][3:5]}, 0x{insList[i + 1][1:3]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i + 1][3:5]}, 0x{insList[i + 1][1:3]}, ")
-                i += 1
+            if addrType == "imm":
+                code += f"0x{opcode}, 0x{insList[i+1][2:4]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i+1][2:4]}, ")
+                i+=1
+
+            elif addrType == "abs" or addrType == "x-abs" or addrType == "y-abs":
+                code += f"0x{opcode}, 0x{insList[i+1][3:5]}, 0x{insList[i+1][1:3]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i+1][3:5]}, 0x{insList[i+1][1:3]}, ")
+                i+=1
+
             elif addrType == "abs-ind":
-                code += f"0x{opcode}, 0x{insList[i + 1][4:6]}, 0x{insList[i + 1][2:4]}, 0x{insList[i + 1][1:2]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i + 1][4:6]}, 0x{insList[i + 1][2:4]}, 0x{insList[i + 1][1:2]}, ")
-                i += 1
-            elif addrType == "rel":
-                code += f"0x{opcode}, 0x{insList[i + 1]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i + 1]}, ")
-                i += 1
-            else:
+                code += f"0x{opcode}, 0x{insList[i+1][4:6]}, 0x{insList[i+1][2:4]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i+1][4:6]}, 0x{insList[i+1][2:4]}, ")
+                i+=1
+
+            elif addrType == "zer" or addrType == "x-zer" or addrType == "y-zer":
+                code += f"0x{opcode}, 0x{insList[i+1][1:3]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i+1][1:3]}, ")
+                i+=1
+
+            elif addrType == "y-zer-ind" or addrType == "x-zer-ind":
+                code += f"0x{opcode}, 0x{insList[i+1][2:4]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i+1][2:4]}, ")
+                i+=1
+
+            elif addrType == "acc":
                 code += f"0x{opcode}, "
                 print(f" -> 0x{opcode}, ")
-        else:
-            opcode = insSet[instruction]["imp"]
-            print(f" - Implied addressing opcode == {opcode}")
-            code += f"0x{opcode}, "
+                i+=1
+            
+            # Branch exclusive Addressing Type
+            elif addrType == "rel":
+                code += "branch, "
+                print("branch ")
+                i+=1
 
-        i += 1
+        else:
+            opcode = insSet[insList[i]]["imp"]
+            print(" - Addressing type == imp and Opcode == " + str(opcode))
+            code += f"0x{opcode}, "
+            print(f" -> 0x{opcode}, ")
+
+        i+=1
 
     print("\nFinal Assembled Code:")
     print(code)
