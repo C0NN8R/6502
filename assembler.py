@@ -1,92 +1,74 @@
-# 6502 Assembler for a few select instructions
+import json
+from time import sleep
 
-# Define instruction set with addressing modes and opcodes
-instrSet = {
-    "EXT": "EF",
-    "LDA": {
-        "imm": "A9",
-        "abs": "AD",
-        "x-abs": "BD",
-        "y-abs": "B9",
-        "zer": "A5",
-        "x-zer": "B5",
-        "x-zer-ind": "A1",
-        "y-zer-ind": "B1",
-    },
-    # Add more instructions and their addressing modes here as needed
-}
+# Load addrSet and insSet from JSON files
+with open('addrSet.json') as f:
+    addrSet = json.load(f)
 
-# Get Addressing Type
-def GetAddressType(arg):
-    if arg.startswith("#"):
-        return "imm"
-    elif arg.startswith("$"):
-        if len(arg) == 5:
-            return "abs"
-        elif len(arg) == 3:
-            return "zer"
-    elif arg.startswith("("):
-        if len(arg) == 7:
-            return "abs-ind"
-    if "X" in arg:
-        if len(arg) == 7 and arg.startswith("$"):
-            return "x-abs"
-        elif len(arg) == 7 and arg.startswith("("):
-            return "x-zer-ind"
-        elif len(arg) == 5:
-            return "x-zer"
-    if "Y" in arg:
-        if len(arg) == 7 and arg.startswith("$"):
-            return "y-abs"
-        elif len(arg) == 7 and arg.startswith("("):
-            return "y-zer-ind"
-        elif len(arg) == 5:
-            return "y-zer"
-    return None
+with open('insSet.json') as f:
+    insSet = json.load(f)
 
-# Sample input instructions
-ins = "LDA #$AB LDA $3B4A EXT"
+def AddrType(operand):
+    abstracted_operand = ''.join('n' if c in "123456789ABCDEF" else c for c in operand)
+    print(" [] - Operand abstracted as: " + abstracted_operand)
+    if abstracted_operand in addrSet:
+        print(" [] - Addressing Type match: " + addrSet[abstracted_operand])
+        return addrSet[abstracted_operand]
+    print("\n! Incorrect Addressing Type format: " + operand)
+    return 0
 
-# Split instructions into list
-insList = list(ins.replace('\n', ' ').split(" "))
-
-# Assemble the instructions
 def Exec():
+    code = ""
     i = 0
     while i < len(insList):
+        sleep(.15)
         instruction = insList[i]
-        if instruction in instrSet:
-            opcode_dict = instrSet[instruction]
-            if isinstance(opcode_dict, dict):
-                try:
-                    arg = insList[i + 1]
-                    addrType = GetAddressType(arg)
-                    if addrType and addrType in opcode_dict:
-                        opcode = opcode_dict[addrType]
-                        print(f"Assembling {instruction} with {addrType} addressing:")
-                        print_opcode(opcode, addrType, arg)
-                        i += 1
-                    else:
-                        print(f"Error: Unsupported or missing addressing type for {instruction}!")
-                except IndexError:
-                    print(f"Error: Missing operand for {instruction}!")
+        if instruction not in insSet:
+            print("\n! Unsupported Operation at i == " + str(i) + ": " + instruction)
+            return 0
+
+        print(f"\nAssembling at i == {i}: {instruction}")
+
+        if instruction not in ["BRK", "CLC", "CLD", "CLI", "CLV", "DEX", "DEY", "INX", "INY", "NOP", "PHA", "PHP", "PLA", "PLP",
+                               "RTI", "RTS", "SEC", "SED", "SEI", "TAX", "TAY", "TSX", "TXA", "TXS", "TYA", "EXT"]:
+            addrType = "rel" if instruction in ["BCC", "BCS", "BEQ", "BMI", "BNE", "BPL", "BVC", "BVS"] else AddrType(insList[i + 1])
+            try:
+                opcode = insSet[instruction][addrType]
+            except KeyError:
+                print("\n! Non-compatible Addressing Type at i == " + str(i) + ": " + instruction)
+                return 0
+
+            print(f" - Addressing type == {addrType} and opcode == {opcode}")
+
+            if addrType in ["imm", "zer", "x-zer", "y-zer", "x-zer-ind", "y-zer-ind"]:
+                code += f"0x{opcode}, 0x{insList[i + 1][2:4]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i + 1][2:4]}, ")
+                i += 1
+            elif addrType in ["abs", "x-abs", "y-abs"]:
+                code += f"0x{opcode}, 0x{insList[i + 1][3:5]}, 0x{insList[i + 1][1:3]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i + 1][3:5]}, 0x{insList[i + 1][1:3]}, ")
+                i += 1
+            elif addrType == "abs-ind":
+                code += f"0x{opcode}, 0x{insList[i + 1][4:6]}, 0x{insList[i + 1][2:4]}, 0x{insList[i + 1][1:2]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i + 1][4:6]}, 0x{insList[i + 1][2:4]}, 0x{insList[i + 1][1:2]}, ")
+                i += 1
+            elif addrType == "rel":
+                code += f"0x{opcode}, 0x{insList[i + 1]}, "
+                print(f" -> 0x{opcode}, 0x{insList[i + 1]}, ")
+                i += 1
             else:
-                print(f"Assembling {instruction} with implied addressing:")
-                print(f"0x{opcode_dict},")
+                code += f"0x{opcode}, "
+                print(f" -> 0x{opcode}, ")
         else:
-            print(f"Error: Unknown instruction '{instruction}'!")
+            opcode = insSet[instruction]["imp"]
+            print(f" - Implied addressing opcode == {opcode}")
+            code += f"0x{opcode}, "
+
         i += 1
 
-def print_opcode(opcode, addrType, arg):
-    if addrType == "imm":
-        print(f"0x{opcode}, 0x{arg[2:4]},")
-    elif addrType in ["abs", "x-abs", "y-abs"]:
-        print(f"0x{opcode}, 0x{arg[3:5]}, 0x{arg[1:3]},")
-    elif addrType == "abs-ind":
-        print(f"0x{opcode}, 0x{arg[4:6]}, 0x{arg[2:4]},")
-    elif addrType in ["zer", "x-zer", "y-zer"]:
-        print(f"0x{opcode}, 0x{arg[1:3]},")
-    elif addrType in ["x-zer-ind", "y-zer-ind"]:
-        print(f"0x{opcode}, 0x{arg[2:4]},")
+    print("\nFinal Assembled Code:")
+    print(code)
 
+# Example usage
+insList = ["LDA", "#$01", "STA", "$0200", "LDX", "#$08", "STX", "$0001", "LDY", "#$FF", "STY", "$0201"]
 Exec()

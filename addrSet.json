@@ -1,0 +1,13 @@
+{
+    "n": "acc",
+    "#$nn": "imm",
+    "$nnnn": "abs",
+    "$nnnn,X": "x-abs",
+    "$nnnn,Y": "y-abs",
+    "($nnnn)": "abs-ind",
+    "$nn": "zer",
+    "$nn,X": "x-zer",
+    "$nn,Y": "y-zer",
+    "($nn,X)": "x-zer-ind",
+    "($nn,Y)": "y-zer-ind"
+}
