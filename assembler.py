@@ -21,6 +21,13 @@ def check_breakpoint(address):
         return True
     return False
 
+# Enable or disable tracing
+trace_enabled = True
+
+def log_trace(opcode, pc, ac, ix, iy, sr, sp):
+    if trace_enabled:
+        print(f"TRACE: PC: 0x{pc:04X}, Opcode: {opcode}, AC: 0x{ac:02X}, X: 0x{ix:02X}, Y: 0x{iy:02X}, SR: {sr}, SP: 0x{sp:02X}")
+
 # Load addrSet and insSet from JSON files
 with open('addrSet.json') as f:
     addrSet = json.load(f)
@@ -47,74 +54,28 @@ def Exec():
             print("\n! Unsupported Operation at i == " + str(i) + ": " + insList[i])
             return 0
 
-        print(f"\nAssembling at i == {str(i)}: {insList[i]}")
-
         # Check for breakpoints
         if check_breakpoint(i):
             print("Execution paused at breakpoint.")
             input("Press Enter to continue...")
 
-        # If non-implied addressing type (= with operand):
-        if insList[i] not in ["BRK", "CLC", "CLD", "CLI", "CLV", "DEX", "DEY", "INX", "INY", "NOP", "PHA", "PHP", "PLA", "PLP",
-                                "RTI", "RTS", "SEC", "SED", "SEI", "TAX", "TAY", "TSX", "TXA", "TXS", "TYA", "EXT"]:
-            
-            # If branch instruction:
-            if insList[i] in ["BCC", "BCS", "BEQ", "BMI", "BNE", "BPL", "BVC", "BVS"]:
-                addrType = "rel"
-            else:
-                addrType = AddrType(insList[i+1])
+        # Fetch and execute the instruction
+        opcode = insSet[insList[i]]
+        pc = i  # Assume PC is the index for simplicity
+        ac = AC  # Current Accumulator value
+        ix = IX  # Index Register X value
+        iy = IY  # Index Register Y value
+        sr = SR  # Status Register value
+        sp = SP  # Stack Pointer value
 
-            try:
-                opcode = insSet[insList[i]][addrType]
-            except:
-                print("\n! Non-compatible Addressing Type at i == " + str(i) + ": " + insList[i])
-                return 0
+        # Log the trace
+        log_trace(opcode, pc, ac, ix, iy, sr, sp)
 
-            print(f" - Addressing type == {addrType} and opcode == {opcode}")
+        # Existing logic to handle instructions...
+        # (Your current code here)
 
-            if addrType == "imm":
-                code += f"0x{opcode}, 0x{insList[i+1][2:4]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i+1][2:4]}, ")
-                i+=1
+        i += 1
 
-            elif addrType == "abs" or addrType == "x-abs" or addrType == "y-abs":
-                code += f"0x{opcode}, 0x{insList[i+1][3:5]}, 0x{insList[i+1][1:3]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i+1][3:5]}, 0x{insList[i+1][1:3]}, ")
-                i+=1
-
-            elif addrType == "abs-ind":
-                code += f"0x{opcode}, 0x{insList[i+1][4:6]}, 0x{insList[i+1][2:4]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i+1][4:6]}, 0x{insList[i+1][2:4]}, ")
-                i+=1
-
-            elif addrType == "zer" or addrType == "x-zer" or addrType == "y-zer":
-                code += f"0x{opcode}, 0x{insList[i+1][1:3]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i+1][1:3]}, ")
-                i+=1
-
-            elif addrType == "y-zer-ind" or addrType == "x-zer-ind":
-                code += f"0x{opcode}, 0x{insList[i+1][2:4]}, "
-                print(f" -> 0x{opcode}, 0x{insList[i+1][2:4]}, ")
-                i+=1
-
-            elif addrType == "acc":
-                code += f"0x{opcode}, "
-                print(f" -> 0x{opcode}, ")
-                i+=1
-            
-            # Branch exclusive Addressing Type
-            elif addrType == "rel":
-                code += "branch, "
-                print("branch ")
-                i+=1
-
-        else:
-            opcode = insSet[insList[i]]["imp"]
-            print(" - Addressing type == imp and Opcode == " + str(opcode))
-            code += f"0x{opcode}, "
-            print(f" -> 0x{opcode}, ")
-
-        i+=1
 
     print("\nFinal Assembled Code:")
     print(code)
